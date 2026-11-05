@@ -229,6 +229,18 @@ main { padding: 24px 16px 60px; max-width: 960px; margin: 0 auto; }
 .toast-info { background: var(--carvao-3); color: var(--texto); border: 1px solid #3a3e49; }
 @keyframes subir { from { transform: translateY(12px); opacity: 0; } }
 
+/* ---------- Login por código ---------- */
+#tela-codigo .modal-caixa input {
+  width: 100%; padding: 12px 14px; margin-top: 14px;
+  background: var(--carvao-3); color: var(--texto);
+  border: 2px solid #3a3e49; border-radius: 8px;
+  font-size: 1.1rem; text-align: center; letter-spacing: .12em;
+  text-transform: uppercase;
+}
+#tela-codigo .modal-caixa input:focus { outline: 2px solid var(--dourado); border-color: var(--dourado); }
+.erro-msg { color: #ff9aa2; min-height: 1.2em; margin: 10px 0 0; font-size: .9rem; }
+#tela-codigo .btn { width: 100%; margin-top: 12px; }
+
 @media (max-width: 480px) {
   .card-acoes { grid-template-columns: 1fr; }
   .aba { padding: 8px 16px; font-size: .95rem; }

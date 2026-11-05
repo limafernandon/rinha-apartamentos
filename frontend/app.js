@@ -17,7 +17,47 @@ const state = {
   carregando: false,
   cardAtualId: null,
   reprovarId: null,
+  usuario: '',
+  nomeUsuario: '',
+  prefs: {},
 };
+
+/* ---------- Login por código ---------- */
+const LS_KEY = 'rinha_usuario';
+function usuarioCache() { return localStorage.getItem(LS_KEY) || ''; }
+function setUsuario(u) { localStorage.setItem(LS_KEY, u); state.usuario = u; }
+
+function pedirCodigo(prefs) {
+  // overlay simples de login (elemento #tela-codigo em index.html)
+  return new Promise((resolve) => {
+    const tela = document.getElementById('tela-codigo');
+    const input = document.getElementById('input-codigo');
+    const btn = document.getElementById('btn-entrar');
+    tela.classList.remove('oculto');
+    const tentar = () => {
+      const cod = input.value.trim().toLowerCase();
+      const valido = Object.entries(prefs || {})
+        .some(([k, v]) => k.startsWith('Codigo ') && String(v).toLowerCase() === cod);
+      if (!valido) { document.getElementById('erro-codigo').textContent = 'Código inválido, juiz.'; return; }
+      const nome = Object.keys(prefs).find((k) => k.startsWith('Codigo ') && String(prefs[k]).toLowerCase() === cod).replace('Codigo ', '');
+      setUsuario(cod); state.nomeUsuario = nome;
+      tela.classList.add('oculto');
+      resolve();
+    };
+    btn.onclick = tentar;
+    input.onkeydown = (e) => { if (e.key === 'Enter') tentar(); };
+    input.focus();
+  });
+}
+
+async function apiPrefs() {
+  const url = new URL(APPS_SCRIPT_URL);
+  url.searchParams.set('action', 'prefs');
+  const res = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return (data && data.prefs) || {};
+}
 
 /* ---------- Utils ---------- */
 const brl = (v) => {
@@ -71,6 +111,14 @@ async function carregar(silent = false) {
   if (state.carregando) return;
   state.carregando = true;
   try {
+    // Login: se não há juiz cacheado, pede o código antes de carregar o ringue.
+    if (!state.usuario) {
+      if (usuarioCache()) setUsuario(usuarioCache());
+      else {
+        state.prefs = await apiPrefs();
+        await pedirCodigo(state.prefs);
+      }
+    }
     state.imoveis = await apiList();
     render();
   } catch (e) {
