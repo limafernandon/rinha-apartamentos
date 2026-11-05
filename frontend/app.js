@@ -48,6 +48,7 @@ async function apiList(status) {
   const res = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
+  if (data && Array.isArray(data.items)) return data.items;
   return Array.isArray(data) ? data : (data.imoveis || data.data || []);
 }
 
