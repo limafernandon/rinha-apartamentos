@@ -191,7 +191,7 @@ function cardHtml(im, topo) {
           <span>📐 ${num(im['Área']) ? num(im['Área']) + ' m²' : '—'}</span>
           <span>🛏️ ${num(im['Quartos']) ?? '—'} quarto(s)</span>
           <span>🚿 ${num(im['Banheiros']) ?? '—'} banh.</span>
-          <span>🚗 ${num(im['Vagas']) ?? '—'} vaga(s)</span>
+          <span>🚗 ${num(im['Vagas Garagem'] ?? im['Vagas']) ?? '—'} vaga(s)</span>
         </div>
         <div class="card-detalhe">
           Aluguel ${brl(im['Preço Aluguel'])} · Cond. ${brl(im['Condomínio'])} · IPTU ${brl(im['IPTU'])}
@@ -424,7 +424,7 @@ function linhaVisitaHtml(im) {
       ${escapeHtml(im['Título do Anúncio'] || '—')} ↗
     </a>
     <p class="lv-meta">📍 ${escapeHtml(im.Bairro || '—')} · ${brl(im['Preço Aluguel'])} + cond. ${brl(im['Condomínio'])} + IPTU ${brl(im['IPTU'])}
-    ${num(im['Área']) ? ` · ${num(im['Área'])} m²` : ''}${num(im['Quartos']) ? ` · 🛏️ ${num(im['Quartos'])}` : ''}${num(im['Vagas']) ? ` · 🚗 ${num(im['Vagas'])}` : ''}</p>`;
+    ${num(im['Área']) ? ` · ${num(im['Área'])} m²` : ''}${num(im['Quartos']) ? ` · 🛏️ ${num(im['Quartos'])}` : ''}${num(im['Vagas Garagem'] ?? im['Vagas']) ? ` · 🚗 ${num(im['Vagas Garagem'] ?? im['Vagas'])}` : ''}</p>`;
 }
 
 function slug(s) {

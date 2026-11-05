@@ -139,7 +139,7 @@ function addListing(p) {
   valoresPorColuna['Área'] = p.area || p['Área'] || '';
   valoresPorColuna['Quartos'] = p.quartos || p['Quartos'] || '';
   valoresPorColuna['Banheiros'] = p.banheiros || p['Banheiros'] || '';
-  valoresPorColuna['Vagas'] = p.vagas || p['Vagas'] || '';
+  valoresPorColuna['Vagas Garagem'] = p.vagas || p['Vagas Garagem'] || ''; // header real é 'Vagas Garagem' (não normalizado por readImoveis_)
   valoresPorColuna['Andar'] = p.andar || p['Andar'] || '';
   valoresPorColuna['Portal'] = p.portal || p['Portal'] || '';
   valoresPorColuna['Link Anúncio'] = link;
