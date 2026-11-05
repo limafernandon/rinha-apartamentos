@@ -284,7 +284,6 @@ function acaoCard(acao) {
     state.reprovarId = id;
     document.getElementById('modal-reprovar').classList.remove('oculto');
     document.getElementById('justificativa').value = '';
-    document.getElementById('justificativa').focus();
   }
 }
 
