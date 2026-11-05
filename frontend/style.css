@@ -1,0 +1,235 @@
+/* 🥊 Rinha de Apartamentos — estilo ringue */
+:root {
+  --carvao: #111318;
+  --carvao-2: #1a1d24;
+  --carvao-3: #23262f;
+  --vermelho-boxe: #e63946;
+  --dourado: #ffb703;
+  --texto: #f1f1f1;
+  --texto-fraco: #9aa0ab;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--carvao);
+  color: var(--texto);
+  font-family: 'Roboto', sans-serif;
+  min-height: 100vh;
+}
+
+/* Display uppercase estilo ringue */
+.titulo-ringe, .aba, .card-preco, .card-vs, .modal-titulo, .badge {
+  font-family: 'Anton', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ---------- Topo ---------- */
+.topo {
+  background: linear-gradient(180deg, var(--carvao-2), var(--carvao));
+  border-bottom: 3px solid var(--vermelho-boxe);
+  padding: 18px 20px 0;
+  text-align: center;
+}
+.titulo-ringe {
+  font-size: clamp(1.6rem, 5vw, 2.6rem);
+  color: var(--texto);
+  text-shadow: 0 0 18px rgba(230, 57, 70, .45);
+}
+.titulo-ringe::after {
+  content: '';
+  display: block;
+  width: 120px; height: 4px;
+  margin: 8px auto 0;
+  background: linear-gradient(90deg, var(--vermelho-boxe), var(--dourado));
+  border-radius: 2px;
+}
+.abas { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+.aba {
+  background: transparent;
+  color: var(--texto-fraco);
+  border: 2px solid var(--carvao-3);
+  border-bottom: none;
+  padding: 10px 28px;
+  font-size: 1.05rem;
+  cursor: pointer;
+  border-radius: 10px 10px 0 0;
+  transition: .15s;
+}
+.aba.ativa {
+  color: var(--carvao);
+  background: var(--vermelho-boxe);
+  border-color: var(--vermelho-boxe);
+}
+.aba:hover:not(.ativa) { color: var(--dourado); border-color: var(--dourado); }
+
+main { padding: 24px 16px 60px; max-width: 960px; margin: 0 auto; }
+.painel { display: none; }
+.painel.ativa { display: block; }
+.oculto { display: none !important; }
+
+/* ---------- Loading ---------- */
+.loading { text-align: center; padding: 60px 0; color: var(--texto-fraco); }
+.sino {
+  width: 56px; height: 56px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 5px solid var(--carvao-3);
+  border-top-color: var(--dourado);
+  animation: girar .8s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* ---------- Card lutador (tinder) ---------- */
+#card-area { max-width: 420px; margin: 0 auto; }
+.card-lutador {
+  background: var(--carvao-2);
+  border: 2px solid var(--carvao-3);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,.5), 0 0 0 1px rgba(230,57,70,.15);
+  position: relative;
+  animation: entrar .25s ease-out;
+}
+@keyframes entrar { from { transform: translateY(14px) scale(.98); opacity: 0; } }
+.card-img { width: 100%; height: 220px; object-fit: cover; display: block; background: var(--carvao-3); }
+.card-img-vazio {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 4rem; color: var(--vermelho-boxe);
+}
+.card-corpo { padding: 18px; }
+.card-preco { font-size: 2rem; color: var(--dourado); }
+.card-titulo { font-size: 1.05rem; font-weight: 700; margin: 6px 0 2px; }
+.card-bairro { color: var(--texto-fraco); font-size: .95rem; }
+.card-stats {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 12px 0; font-size: .9rem;
+}
+.card-stats span {
+  background: var(--carvao-3);
+  padding: 4px 10px; border-radius: 20px;
+  border: 1px solid #33363f;
+}
+.card-detalhe { font-size: .85rem; color: var(--texto-fraco); }
+.card-link {
+  display: inline-block; margin-top: 8px;
+  color: var(--dourado); text-decoration: none; font-weight: 700;
+}
+.card-link:hover { text-decoration: underline; }
+.card-vs {
+  position: absolute; top: 14px; right: 14px;
+  background: var(--vermelho-boxe); color: #fff;
+  padding: 4px 12px; font-size: 1rem;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(230,57,70,.4);
+}
+.card-acoes {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+  padding: 0 18px 18px;
+}
+
+/* ---------- Botões ---------- */
+.btn {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 700;
+  border: none; border-radius: 10px;
+  padding: 12px 10px;
+  font-size: .95rem;
+  cursor: pointer;
+  color: #fff;
+  transition: transform .1s, filter .15s;
+}
+.btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.btn:active { transform: scale(.97); }
+.btn-vermelho { background: var(--vermelho-boxe); }
+.btn-ouro { background: var(--dourado); color: var(--carvao); }
+.btn-perigo { background: #7a1e26; }
+.btn-sec { background: var(--carvao-3); color: var(--texto); }
+
+/* ---------- Vazio ---------- */
+.vazio {
+  text-align: center; padding: 70px 20px;
+  color: var(--texto-fraco); font-size: 1.15rem;
+  border: 2px dashed var(--carvao-3); border-radius: 16px;
+}
+
+/* ---------- Visita ---------- */
+.visita-lista { display: flex; flex-direction: column; gap: 12px; }
+.linha-visita {
+  background: var(--carvao-2);
+  border: 1px solid var(--carvao-3);
+  border-left: 4px solid var(--vermelho-boxe);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex; gap: 16px; flex-wrap: wrap;
+}
+.lv-main { flex: 1 1 320px; }
+.lv-topo { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.badge {
+  font-size: .72rem; padding: 3px 10px; border-radius: 4px;
+  background: var(--carvao-3); color: var(--texto);
+}
+.badge-ouro { background: var(--dourado); color: var(--carvao); }
+.badge-aprovado-selecao { background: var(--vermelho-boxe); color: #fff; }
+.badge-visitado, .badge-agendado { background: #2a7de1; color: #fff; }
+.lv-titulo { color: var(--texto); font-weight: 700; text-decoration: none; }
+.lv-titulo:hover { color: var(--dourado); }
+.lv-meta { color: var(--texto-fraco); font-size: .88rem; margin-top: 4px; }
+.lv-nota { flex: 1 1 220px; display: flex; flex-direction: column; gap: 6px; }
+.lv-nota label { font-size: .8rem; color: var(--texto-fraco); text-transform: uppercase; letter-spacing: 1px; }
+.lv-nota textarea {
+  background: var(--carvao); color: var(--texto);
+  border: 1px solid var(--carvao-3); border-radius: 8px;
+  padding: 8px; resize: vertical; font-family: inherit;
+}
+.lv-nota textarea:focus { outline: 2px solid var(--dourado); }
+.btn-salvar-nota { padding: 8px; font-size: .85rem; align-self: flex-start; }
+
+/* ---------- Modal ---------- */
+.modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 16px;
+}
+.modal-caixa {
+  background: var(--carvao-2);
+  border: 2px solid var(--vermelho-boxe);
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%; max-width: 420px;
+}
+.modal-titulo { color: var(--vermelho-boxe); font-size: 1.5rem; }
+.modal-sub { color: var(--texto-fraco); margin: 8px 0 14px; font-size: .92rem; }
+.modal-caixa textarea {
+  width: 100%;
+  background: var(--carvao); color: var(--texto);
+  border: 1px solid var(--carvao-3); border-radius: 8px;
+  padding: 10px; font-family: inherit; resize: vertical;
+}
+.modal-caixa textarea:focus { outline: 2px solid var(--vermelho-boxe); }
+.modal-acoes { display: flex; gap: 8px; margin-top: 14px; }
+.modal-acoes .btn { flex: 1; }
+
+/* ---------- Toasts ---------- */
+#toasts {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 8px; z-index: 200;
+  width: max-content; max-width: 92vw;
+}
+.toast {
+  padding: 12px 18px; border-radius: 10px;
+  font-weight: 500; font-size: .95rem;
+  animation: subir .25s ease-out;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5);
+}
+.toast-ok { background: #1e4620; color: #b7f5b7; border: 1px solid #2f7a34; }
+.toast-erro { background: #4a1518; color: #ffb3b8; border: 1px solid var(--vermelho-boxe); }
+.toast-info { background: var(--carvao-3); color: var(--texto); border: 1px solid #3a3e49; }
+@keyframes subir { from { transform: translateY(12px); opacity: 0; } }
+
+@media (max-width: 480px) {
+  .card-acoes { grid-template-columns: 1fr; }
+  .aba { padding: 8px 16px; font-size: .95rem; }
+}
