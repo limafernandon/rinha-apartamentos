@@ -14,8 +14,10 @@
   <h1 class="titulo-ringe">🥊 RINHA DE APARTAMENTOS</h1>
   <nav class="abas">
     <button class="aba ativa" data-aba="selecao">SELEÇÃO</button>
+    <button class="aba" data-aba="shortlist">SHORTLIST</button>
     <button class="aba" data-aba="visita">VISITA</button>
   </nav>
+  <button id="btn-sair" class="btn btn-sair" title="Trocar de juiz">Sair</button>
 </header>
 
 <main>
@@ -28,6 +30,11 @@
       </div>
       <div id="card-area"></div>
     </div>
+  </section>
+
+  <!-- Aba SHORTLIST: imóveis com 2 gostei — decisão de contato -->
+  <section id="aba-shortlist" class="painel">
+    <div id="shortlist-container"></div>
   </section>
 
   <!-- Aba VISITA: lista de imóveis aprovados/visitados -->
@@ -44,7 +51,7 @@
 <div id="modal-reprovar" class="modal oculto">
   <div class="modal-caixa">
     <h2 class="modal-titulo">💥 NOCAUTEADO!</h2>
-    <p class="modal-sub">Por que esse lutador sai do ringue? (obrigatório)</p>
+    <p class="modal-sub">Por que esse lutador sai do ringue? (opcional)</p>
     <textarea id="justificativa" rows="4" placeholder="Ex.: caro demais pro bairro, área apertada, vaga nenhuma..."></textarea>
     <div class="modal-acoes">
       <button id="btn-cancelar-reprovar" class="btn btn-sec">Cancelar</button>

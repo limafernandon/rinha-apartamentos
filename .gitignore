@@ -1,3 +1,4 @@
 scripts/config.json
 logs/
 *.log
+__pycache__/

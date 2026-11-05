@@ -144,7 +144,13 @@ function trocarAba(aba) {
   state.aba = aba;
   document.querySelectorAll('.aba').forEach((b) => b.classList.toggle('ativa', b.dataset.aba === aba));
   document.querySelectorAll('.painel').forEach((p) => p.classList.toggle('ativa', p.id === `aba-${aba}`));
-  if (aba === 'visita') carregar(true);
+  if (aba === 'visita' || aba === 'shortlist') carregar(true);
+}
+
+/* ---------- Sair (trocar de juiz) ---------- */
+function sair() {
+  localStorage.removeItem(LS_KEY);
+  location.reload();
 }
 
 /* ---------- SELEÇÃO (cards tinder) ---------- */
@@ -313,6 +319,56 @@ function fecharModal() {
   state.reprovarId = null;
 }
 
+/* ---------- SHORTLIST (2 gostei) ---------- */
+function pileShortlist() {
+  return state.imoveis.filter(
+    (i) => String(i['Voto Fefo'] || '').toLowerCase() === 'gostei'
+        && String(i['Voto Ray']  || '').toLowerCase() === 'gostei');
+}
+
+function renderShortlist() {
+  const cont = document.getElementById('shortlist-container');
+  const lista = pileShortlist();
+  if (!lista.length) {
+    cont.innerHTML = '<p class="vazio">Shortlist vazia. Precisa dos 2 GOSTEI dos juízes! 💚💚</p>';
+    return;
+  }
+  cont.innerHTML = `<div class="visita-lista">${lista.map((im) => `
+    <div class="linha-visita linha-shortlist" data-id="${escapeHtml(im.ID || '')}">
+      <div class="lv-main">
+        <div class="lv-topo">
+          <span class="badge badge-shortlist">💚 ${escapeHtml(state.nomeUsuario)} + ${state.usuario === 'fefo' ? 'Ray' : 'Fefo'}</span>
+          <span class="badge badge-ouro">${brl(num(im['Custo Total']) || somaTotal(im))}</span>
+        </div>
+        ${linhaVisitaHtml(im)}
+      </div>
+      <div class="lv-nota">
+        ${im.Contato
+          ? `<p class="lv-decidido">✅ Decidido: ${escapeHtml(im.Contato)}</p>`
+          : `<div class="sl-acoes">
+              <button class="btn btn-ouro" data-contato="Eu mesmo">✋ Eu preencho</button>
+              <button class="btn btn-vermelho" data-contato="Agente">🥊 Agente contata</button>
+             </div>`}
+      </div>
+    </div>`).join('')}</div>`;
+  cont.querySelectorAll('.linha-shortlist [data-contato]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      const id = b.closest('.linha-shortlist').dataset.id;
+      b.disabled = true;
+      try {
+        await apiPatch(id, { Contato: b.dataset.contato });
+        const im = state.imoveis.find((i) => i.ID === id);
+        if (im) im.Contato = b.dataset.contato;
+        toast(b.dataset.contato === 'Eu mesmo' ? '✋ Você assume o contato!' : '🥊 Agente vai pra porrada!', 'ok');
+        render();
+      } catch (e) {
+        toast('Falha ao salvar a decisão de contato.', 'erro');
+        b.disabled = false;
+        console.error(e);
+      }
+    }));
+}
+
 /* ---------- VISITA (tabela) ---------- */
 function renderVisita() {
   const cont = document.getElementById('visita-container');
@@ -322,29 +378,21 @@ function renderVisita() {
     cont.innerHTML = '<p class="vazio">Nenhum lutador classificado ainda. Volte pra aba SELEÇÃO! 🥊</p>';
     return;
   }
-  const linhas = lista.map((im) => {
-    const total = num(im['Custo Total']) || somaTotal(im);
-    const st = (im.Status || '—');
-    return `
+  const linhas = lista.map((im) => `
     <div class="linha-visita" data-id="${escapeHtml(im.ID || '')}">
       <div class="lv-main">
         <div class="lv-topo">
-          <span class="badge badge-${slug(st)}">${escapeHtml(st)}</span>
-          <span class="badge badge-ouro">${brl(total)}</span>
+          <span class="badge badge-${slug(im.Status || '—')}">${escapeHtml(im.Status || '—')}</span>
+          <span class="badge badge-ouro">${brl(num(im['Custo Total']) || somaTotal(im))}</span>
         </div>
-        <a class="lv-titulo" href="${escapeHtml(im['Link Anúncio'] || '#')}" target="_blank" rel="noopener">
-          ${escapeHtml(im['Título do Anúncio'] || '—')} ↗
-        </a>
-        <p class="lv-meta">📍 ${escapeHtml(im.Bairro || '—')} · ${brl(im['Preço Aluguel'])} + cond. ${brl(im['Condomínio'])} + IPTU ${brl(im['IPTU'])}
-        ${num(im['Área']) ? ` · ${num(im['Área'])} m²` : ''}${num(im['Quartos']) ? ` · 🛏️ ${num(im['Quartos'])}` : ''}${num(im['Vagas']) ? ` · 🚗 ${num(im['Vagas'])}` : ''}</p>
+        ${linhaVisitaHtml(im)}
       </div>
       <div class="lv-nota">
         <label>Nota da visita:</label>
         <textarea rows="2" placeholder="Anote aqui o que achou da visita...">${escapeHtml(im['Nota Visitada'] || '')}</textarea>
         <button class="btn btn-sec btn-salvar-nota">Salvar nota</button>
       </div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
   cont.innerHTML = `<div class="visita-lista">${linhas}</div>`;
   cont.querySelectorAll('.linha-visita').forEach((row) => {
     row.querySelector('.btn-salvar-nota').addEventListener('click', async () => {
@@ -370,6 +418,16 @@ function escapeHtml(s) {
   }[c]));
 }
 
+/* Helper DRY: título + meta compartilhado entre Visita e Shortlist */
+function linhaVisitaHtml(im) {
+  return `
+    <a class="lv-titulo" href="${escapeHtml(im['Link Anúncio'] || '#')}" target="_blank" rel="noopener">
+      ${escapeHtml(im['Título do Anúncio'] || '—')} ↗
+    </a>
+    <p class="lv-meta">📍 ${escapeHtml(im.Bairro || '—')} · ${brl(im['Preço Aluguel'])} + cond. ${brl(im['Condomínio'])} + IPTU ${brl(im['IPTU'])}
+    ${num(im['Área']) ? ` · ${num(im['Área'])} m²` : ''}${num(im['Quartos']) ? ` · 🛏️ ${num(im['Quartos'])}` : ''}${num(im['Vagas']) ? ` · 🚗 ${num(im['Vagas'])}` : ''}</p>`;
+}
+
 function slug(s) {
   return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x';
@@ -377,11 +435,13 @@ function slug(s) {
 
 function render() {
   if (state.aba === 'selecao') renderSelecao();
+  else if (state.aba === 'shortlist') renderShortlist();
   else renderVisita();
 }
 
 /* ---------- Boot ---------- */
 document.querySelectorAll('.aba').forEach((b) => b.addEventListener('click', () => trocarAba(b.dataset.aba)));
+document.getElementById('btn-sair').addEventListener('click', sair);
 document.getElementById('btn-cancelar-reprovar').addEventListener('click', fecharModal);
 document.getElementById('btn-confirmar-reprovar').addEventListener('click', confirmarReprovar);
 document.getElementById('modal-reprovar').addEventListener('click', (e) => {

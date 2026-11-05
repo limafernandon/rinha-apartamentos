@@ -254,6 +254,19 @@ main { padding: 24px 16px 60px; max-width: 960px; margin: 0 auto; }
   border-radius: 6px; padding: 4px 10px; font-size: .8rem;
 }
 
+/* ---------- Shortlist + Sair ---------- */
+.topo { position: relative; }
+.btn-sair {
+  position: absolute; top: 18px; right: 16px;
+  background: transparent; color: var(--texto);
+  border: 1px solid #3a3e49; border-radius: 6px;
+  padding: 6px 12px; font-size: .85rem; cursor: pointer;
+}
+.btn-sair:hover { border-color: var(--vermelho-boxe); color: #ffb3b8; }
+.badge-shortlist { background: #1d3324; color: #8fe3a6; border: 1px solid #2e9e4f; }
+.sl-acoes { display: flex; gap: 8px; }
+.lv-decidido { color: #8fe3a6; font-weight: 700; margin: 0; }
+
 /* ---------- Login por código ---------- */
 #tela-codigo .modal-caixa input {
   width: 100%; padding: 12px 14px; margin-top: 14px;
