@@ -11,12 +11,19 @@ const STATUS_ENCONTRADO = 'Encontrado pelo agente';
 const STATUS_DESCARTADO = 'Descartado';
 const STATUS_APROVADO = 'Aprovado (seleção)';
 
+/* Funil da aba Visita — colunas do kanban, na ordem (decisão Fefo 2026-11-05) */
+const VISITA_COLUNAS = ['Aprovado (seleção)', 'Contato feito', 'Visita agendada', 'Visitado'];
+const STATUS_AGENDADA = 'Visita agendada';
+const STATUS_VISITADO = 'Visitado';
+const STATUS_CONTATO = 'Contato feito';
+
 const state = {
   imoveis: [],
   aba: 'selecao',
   carregando: false,
   cardAtualId: null,
   reprovarId: null,
+  detalheId: null,
   usuario: '',
   nomeUsuario: '',
   prefs: {},
