@@ -65,10 +65,22 @@
   <div class="modal-caixa">
     <h2 class="modal-titulo" id="detalhe-titulo">🏠 DETALHE</h2>
     <p class="modal-sub" id="detalhe-meta"></p>
-    <label class="detalhe-label">Status</label>
+    <label class="detalhe-label" for="detalhe-apelido">🏷️ Apelido do apê</label>
+    <input id="detalhe-apelido" type="text" maxlength="60" placeholder="Ex.: Castelo do Barro Preto">
+    <div class="detalhe-linha">
+      <div>
+        <label class="detalhe-label" for="detalhe-data">📅 Data da visita</label>
+        <input id="detalhe-data" type="date">
+      </div>
+      <div>
+        <label class="detalhe-label" for="detalhe-hora">⏰ Hora</label>
+        <input id="detalhe-hora" type="time">
+      </div>
+    </div>
+    <label class="detalhe-label" for="detalhe-status">Status</label>
     <select id="detalhe-status"></select>
     <a id="detalhe-link" href="#" target="_blank" rel="noopener">Ver anúncio ↗</a>
-    <label class="detalhe-label">Nota da visita</label>
+    <label class="detalhe-label" for="detalhe-nota">Nota da visita</label>
     <textarea id="detalhe-nota" rows="4" placeholder="Anote aqui o que achou da visita..."></textarea>
     <div class="modal-acoes">
       <button id="btn-cancelar-detalhe" class="btn btn-sec">Cancelar</button>

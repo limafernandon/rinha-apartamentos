@@ -318,15 +318,23 @@ main { padding: 24px 16px 60px; max-width: 960px; margin: 0 auto; }
 .kanban-card.kc-arrastando { opacity: .45; }
 .kc-topo { display: flex; justify-content: flex-end; margin-bottom: 4px; }
 .kc-titulo { font-weight: 700; font-size: .95rem; line-height: 1.25; }
-.kc-meta { margin: 4px 0 0; font-size: .8rem; opacity: .75; }
-.kc-nota { margin: 6px 0 0; font-size: .8rem; font-style: italic; opacity: .8; }
+.kc-meta { margin: 4px 0 0; font-size: .8rem; color: var(--texto-fraco); }
+.kc-agenda { margin: 6px 0 0; font-size: .8rem; color: var(--texto-fraco); }
+.kc-nota { margin: 6px 0 0; font-size: .8rem; font-style: italic; color: var(--texto-fraco); }
 
 /* ---------- Modal detalhe ---------- */
+.modal-caixa { color-scheme: dark; }
 .detalhe-label { display: block; margin: 12px 0 4px; font-weight: 700; font-size: .85rem; }
-#detalhe-status, #detalhe-nota {
-  width: 100%; box-sizing: border-box; padding: 8px;
-  border-radius: 8px; border: 1px solid rgba(255,255,255,.2);
-  background: rgba(0,0,0,.3); color: inherit; font: inherit;
+.detalhe-linha { display: flex; gap: 10px; }
+.detalhe-linha > div { flex: 1; }
+#detalhe-status, #detalhe-nota, #detalhe-apelido, #detalhe-data, #detalhe-hora {
+  width: 100%; box-sizing: border-box; padding: 9px 10px;
+  border-radius: 8px; border: 1px solid rgba(255,255,255,.22);
+  background: rgba(0,0,0,.35); color: var(--texto); font: inherit;
+}
+#detalhe-status:focus, #detalhe-nota:focus, #detalhe-apelido:focus,
+#detalhe-data:focus, #detalhe-hora:focus {
+  outline: 2px solid var(--dourado); border-color: var(--dourado);
 }
 #detalhe-link { display: inline-block; margin-top: 10px; }
 #detalhe-link.oculto { display: none; }

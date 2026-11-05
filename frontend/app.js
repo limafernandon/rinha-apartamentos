@@ -388,8 +388,9 @@ function kanbanCardHtml(im) {
       <div class="kc-topo">
         <span class="badge badge-ouro">${brl(num(im['Custo Total']) || somaTotal(im))}</span>
       </div>
-      <div class="kc-titulo">${escapeHtml(im['Título do Anúncio'] || im.Bairro || '—')}</div>
+      <div class="kc-titulo"${temApelido(im) ? ` title="Anúncio: ${escapeHtml(im['Título do Anúncio'] || '')}"` : ''}>${escapeHtml(tituloExibido(im))}</div>
       <p class="kc-meta">📍 ${escapeHtml(im.Bairro || '—')}${num(im['Quartos']) ? ` · 🛏️ ${num(im['Quartos'])}` : ''}${num(im['Vagas Garagem'] ?? im['Vagas']) ? ` · 🚗 ${num(im['Vagas Garagem'] ?? im['Vagas'])}` : ''}</p>
+      ${strData(im['Data Visita']) ? `<p class="kc-agenda">📅 ${escapeHtml(strData(im['Data Visita']))}${strHora(im['Hora Visita']) ? ' às ' + escapeHtml(strHora(im['Hora Visita'])) : ''}</p>` : ''}
       ${im['Nota Visitada'] ? `<p class="kc-nota">📝 ${escapeHtml(String(im['Nota Visitada']).slice(0, 60))}</p>` : ''}
     </div>`;
 }
@@ -472,9 +473,10 @@ function abrirDetalhe(id) {
   const im = state.imoveis.find((i) => i.ID === id);
   if (!im) return;
   state.detalheId = id;
-  document.getElementById('detalhe-titulo').textContent = im['Título do Anúncio'] || im.Bairro || 'Imóvel';
+  document.getElementById('detalhe-titulo').textContent = tituloExibido(im);
   document.getElementById('detalhe-meta').textContent =
-    `📍 ${im.Bairro || '—'} · ${brl(num(im['Custo Total']) || somaTotal(im))} · Status: ${im.Status || '—'}`;
+    `📍 ${im.Bairro || '—'} · ${brl(num(im['Custo Total']) || somaTotal(im))} · Status: ${im.Status || '—'}` +
+    (strData(im['Data Visita']) ? ` · 📅 ${strData(im['Data Visita'])}${strHora(im['Hora Visita']) ? ' ' + strHora(im['Hora Visita']) : ''}` : '');
   const sel = document.getElementById('detalhe-status');
   sel.innerHTML = VISITA_COLUNAS.concat(STATUS_ENCONTRADO, STATUS_DESCARTADO)
     .map((s) => `<option value="${escapeHtml(s)}" ${s === im.Status ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
@@ -482,6 +484,9 @@ function abrirDetalhe(id) {
   if (im['Link Anúncio']) { link.href = im['Link Anúncio']; link.classList.remove('oculto'); }
   else link.classList.add('oculto');
   document.getElementById('detalhe-nota').value = im['Nota Visitada'] || '';
+  document.getElementById('detalhe-apelido').value = im.Apelido || '';
+  document.getElementById('detalhe-data').value = strData(im['Data Visita']);
+  document.getElementById('detalhe-hora').value = strHora(im['Hora Visita']);
   document.getElementById('modal-detalhe').classList.remove('oculto');
 }
 
@@ -495,14 +500,28 @@ async function salvarDetalhe() {
   if (!id) return;
   const status = document.getElementById('detalhe-status').value;
   const nota = document.getElementById('detalhe-nota').value.trim();
+  const apelido = document.getElementById('detalhe-apelido').value.trim();
+  const data = document.getElementById('detalhe-data').value;
+  const hora = document.getElementById('detalhe-hora').value;
   const im = state.imoveis.find((i) => i.ID === id);
   const patch = { 'Nota Visitada': nota };
-  if (im && im.Status !== status) patch.Status = status;
+  if (im) {
+    if (im.Status !== status) patch.Status = status;
+    if (apelido !== String(im.Apelido || '').trim()) patch.Apelido = apelido;
+    if (data !== strData(im['Data Visita'])) patch['Data Visita'] = data;
+    if (hora !== strHora(im['Hora Visita'])) patch['Hora Visita'] = hora;
+  }
   const btn = document.getElementById('btn-salvar-detalhe');
   btn.disabled = true;
   try {
     await apiPatch(id, patch);
-    if (im) { im['Nota Visitada'] = nota; if (patch.Status) im.Status = status; }
+    if (im) {
+      im['Nota Visitada'] = nota;
+      im.Apelido = apelido;
+      im['Data Visita'] = data;
+      im['Hora Visita'] = hora;
+      if (patch.Status) im.Status = status;
+    }
     fecharDetalhe();
     render();
     toast('📝 Detalhes salvos!', 'ok');
@@ -525,10 +544,27 @@ function escapeHtml(s) {
 function linhaVisitaHtml(im) {
   return `
     <a class="lv-titulo" href="${escapeHtml(im['Link Anúncio'] || '#')}" target="_blank" rel="noopener">
-      ${escapeHtml(im['Título do Anúncio'] || '—')} ↗
+      ${escapeHtml(tituloExibido(im))} ↗
     </a>
     <p class="lv-meta">📍 ${escapeHtml(im.Bairro || '—')} · ${brl(im['Preço Aluguel'])} + cond. ${brl(im['Condomínio'])} + IPTU ${brl(im['IPTU'])}
     ${num(im['Área']) ? ` · ${num(im['Área'])} m²` : ''}${num(im['Quartos']) ? ` · 🛏️ ${num(im['Quartos'])}` : ''}${num(im['Vagas Garagem'] ?? im['Vagas']) ? ` · 🚗 ${num(im['Vagas Garagem'] ?? im['Vagas'])}` : ''}</p>`;
+}
+
+/* Título exibido: apelido (se existir) senão título do anúncio. DRY p/ kanban, shortlist e modal. */
+function tituloExibido(im) {
+  const ap = String(im.Apelido || '').trim();
+  return ap || im['Título do Anúncio'] || im.Bairro || '—';
+}
+function temApelido(im) { return !!String(im.Apelido || '').trim(); }
+/* Planilha pode devolver data/hora como Date serializado ("1899-12-30T10:00:00.000Z") — extrair cru. */
+function strData(v) {
+  const s = String(v || '');
+  const m = s.match(/\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : s.slice(0, 10);
+}
+function strHora(v) {
+  const m = String(v || '').match(/\d{1,2}:\d{2}/);
+  return m ? (m[0].length === 4 ? '0' + m[0] : m[0]) : '';
 }
 
 function slug(s) {
