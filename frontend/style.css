@@ -229,6 +229,31 @@ main { padding: 24px 16px 60px; max-width: 960px; margin: 0 auto; }
 .toast-info { background: var(--carvao-3); color: var(--texto); border: 1px solid #3a3e49; }
 @keyframes subir { from { transform: translateY(12px); opacity: 0; } }
 
+/* ---------- Swipe tinder ---------- */
+#card-area { position: relative; }
+.card-lutador { touch-action: pan-y; user-select: none; }
+.card-lutador.card-topo { position: relative; z-index: 2; }
+.card-lutador.card-atras {
+  position: absolute; top: 12px; left: 12px; right: -12px; bottom: -12px;
+  z-index: 1; opacity: .65; filter: saturate(.7);
+}
+.card-lutador.arrastando { transition: none; }
+.card-lutador.gostei-hint::after {
+  content: 'GOSTEI 💚'; position: absolute; top: 20px; right: 20px;
+  font-family: 'Anton', sans-serif; font-size: 2rem; color: #2e9e4f;
+  text-shadow: 0 2px 8px rgba(0,0,0,.7);
+}
+.card-lutador.nocaute-hint::after {
+  content: 'NOCAUTE 💥'; position: absolute; top: 20px; left: 20px;
+  font-family: 'Anton', sans-serif; font-size: 2rem; color: #e63946;
+  text-shadow: 0 2px 8px rgba(0,0,0,.7);
+}
+.selo-votado {
+  position: absolute; top: 10px; left: 10px; z-index: 3;
+  background: #1d3324; color: #8fe3a6; border: 1px solid #2e9e4f;
+  border-radius: 6px; padding: 4px 10px; font-size: .8rem;
+}
+
 /* ---------- Login por código ---------- */
 #tela-codigo .modal-caixa input {
   width: 100%; padding: 12px 14px; margin-top: 14px;

@@ -148,8 +148,17 @@ function trocarAba(aba) {
 }
 
 /* ---------- SELEÇÃO (cards tinder) ---------- */
+function colunaVotoUsuario() {
+  return state.usuario === 'fefo' ? 'Voto Fefo' : 'Voto Ray';
+}
+
+// Pula imóveis já votados pelo usuário corrente — mas os cards gostei POR mim
+// continuam visíveis para o OUTRO usuário (coluna dele ainda vazia).
 function pileSelecao() {
-  return state.imoveis.filter((i) => i.Status === STATUS_ENCONTRADO);
+  const colVoto = colunaVotoUsuario();
+  return state.imoveis.filter((i) =>
+    i.Status === STATUS_ENCONTRADO
+    && String(i[colVoto] || '').toLowerCase().trim() === '');
 }
 
 function imgDeAnuncio(imovel) {
@@ -159,18 +168,13 @@ function imgDeAnuncio(imovel) {
   return link || null;
 }
 
-function renderSelecao() {
-  const area = document.getElementById('card-area');
-  const pilha = pileSelecao();
-  if (!pilha.length) {
-    area.innerHTML = '<p class="vazio">🥊 Ringue vazio! O agente tá caçando novos lutadores...</p>';
-    return;
-  }
-  const im = pilha[0];
-  state.cardAtualId = im.ID;
+function cardHtml(im, topo) {
   const img = imgDeAnuncio(im);
-  area.innerHTML = `
-    <div class="card-lutador">
+  const colVoto = colunaVotoUsuario();
+  const jaVotado = String(im[colVoto] || '').toLowerCase().trim() !== '';
+  return `
+    <div class="card-lutador ${topo ? 'card-topo' : 'card-atras'}">
+      ${topo && jaVotado ? '<div class="selo-votado">💚 você já votou</div>' : ''}
       ${img ? `<img class="card-img" src="${escapeHtml(img)}" alt="Imóvel" onerror="this.style.display='none'">`
              : '<div class="card-img card-img-vazio">🥊</div>'}
       <div class="card-corpo">
@@ -189,14 +193,63 @@ function renderSelecao() {
         ${im['Link Anúncio'] ? `<a class="card-link" href="${escapeHtml(im['Link Anúncio'])}" target="_blank" rel="noopener">Ver anúncio ↗</a>` : ''}
       </div>
       <div class="card-vs">🥊 VS</div>
+      ${topo ? `
       <div class="card-acoes">
-        <button class="btn btn-perigo" data-acao="reprovar" title="Reprovar">❌ Nocaute</button>
-        <button class="btn btn-ouro" data-acao="eu" title="Eu preencho o formulário">✋ Eu preencho</button>
-        <button class="btn btn-vermelho" data-acao="agente" title="Agente contata">🥊 Agente contata</button>
-      </div>
+        <button class="btn btn-vermelho" data-acao="nocaute" title="Nocaute">💥 Nocaute</button>
+        <button class="btn btn-ouro" data-acao="gostei" title="Gostei">💚 Gostei</button>
+      </div>` : ''}
     </div>`;
+}
+
+function renderSelecao() {
+  const area = document.getElementById('card-area');
+  const pilha = pileSelecao();
+  if (!pilha.length) {
+    area.innerHTML = '<p class="vazio">🥊 Ringue vazio! O agente tá caçando novos lutadores...</p>';
+    return;
+  }
+  const im = pilha[0];
+  const prox = pilha[1];
+  state.cardAtualId = im.ID;
+  area.innerHTML = (prox ? cardHtml(prox, false) : '') + cardHtml(im, true);
+  const topCard = area.querySelector('.card-lutador.card-topo');
+  bindSwipe(topCard);
   area.querySelectorAll('[data-acao]').forEach((b) =>
-    b.addEventListener('click', () => acaoCard(b.dataset.acao)));
+    b.addEventListener('click', () => {
+      if (b.dataset.acao === 'gostei') animarSaida(topCard, 1, () => acaoCard('gostei'));
+      else animarSaida(topCard, -1, () => acaoCard('nocaute'));
+    }));
+}
+
+/* ---------- Swipe estilo Tinder ---------- */
+function bindSwipe(cardEl) {
+  let startX = 0, dx = 0, arrastando = false;
+  cardEl.addEventListener('pointerdown', (e) => {
+    arrastando = true; startX = e.clientX; dx = 0;
+    cardEl.setPointerCapture(e.pointerId);
+    cardEl.classList.add('arrastando');
+  });
+  cardEl.addEventListener('pointermove', (e) => {
+    if (!arrastando) return;
+    dx = e.clientX - startX;
+    cardEl.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
+    cardEl.classList.toggle('gostei-hint', dx > 60);
+    cardEl.classList.toggle('nocaute-hint', dx < -60);
+  });
+  cardEl.addEventListener('pointerup', () => {
+    if (!arrastando) return; arrastando = false;
+    cardEl.classList.remove('arrastando', 'gostei-hint', 'nocaute-hint');
+    if (dx > 110) animarSaida(cardEl, 1, () => acaoCard('gostei'));
+    else if (dx < -110) animarSaida(cardEl, -1, () => acaoCard('nocaute'));
+    else { cardEl.style.transform = ''; dx = 0; }
+  });
+}
+
+function animarSaida(cardEl, direcao, done) {
+  cardEl.style.transition = 'transform .3s ease-in, opacity .3s';
+  cardEl.style.transform = `translateX(${direcao * 900}px) rotate(${direcao * 30}deg)`;
+  cardEl.style.opacity = '0';
+  setTimeout(done, 300);
 }
 
 function somaTotal(im) {
@@ -204,46 +257,56 @@ function somaTotal(im) {
   return s || null;
 }
 
+async function apiVote(id, voto, motivo) {
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST', redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'vote', id, usuario: state.usuario, voto, motivo }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+/* ---------- Voto (gostei/nocaute) ---------- */
 function acaoCard(acao) {
   const id = state.cardAtualId;
   if (!id) return;
-  if (acao === 'reprovar') {
+  if (acao === 'gostei') {
+    aplicarVoto(id, 'gostei');
+  } else if (acao === 'nocaute') {
     state.reprovarId = id;
     document.getElementById('modal-reprovar').classList.remove('oculto');
     document.getElementById('justificativa').value = '';
     document.getElementById('justificativa').focus();
-    return;
   }
-  const patch = acao === 'eu'
-    ? { Status: STATUS_APROVADO, Contato: 'Eu mesmo' }
-    : { Status: STATUS_APROVADO, Contato: 'Agente' };
-  aplicarPatch(id, patch, acao === 'eu' ? '✋ Você assume o contato!' : '🥊 Agente vai pra porrada!');
 }
 
-function aplicarPatch(id, patch, msgOk) {
-  // Otimista: tira o card da pilha já
+function aplicarVoto(id, voto, motivo) {
+  // Otimista: atualiza estado local e tira o card da pilha
   const im = state.imoveis.find((i) => i.ID === id);
-  if (im) Object.assign(im, patch);
+  const colVoto = colunaVotoUsuario();
+  if (im) {
+    im[colVoto] = voto;
+    if (voto === 'nocaute') {
+      im.Status = STATUS_DESCARTADO;
+      if (motivo) im['Notas/Observações'] = motivo;
+    }
+  }
   render();
-  apiPatch(id, patch)
-    .then(() => toast(msgOk, 'ok'))
-    .catch((e) => {
-      toast('Não rolou salvar no Sheets. Recarregando dados...', 'erro');
-      carregar(true);
-      console.error(e);
-    });
+  apiVote(id, voto, motivo || '')
+    .then((r) => toast(voto === 'gostei'
+      ? (r.resultado === 'shortlist' ? '🔥 2 GOSTEI! Foi pra SHORTLIST!' : '💚 Faltou o voto do outro juiz...')
+      : '💥 Nocauteado!', 'ok'))
+    .catch(() => { toast('Falha ao salvar o voto. Recarregando...', 'erro'); carregar(true); });
 }
 
 /* ---------- Modal reprovar ---------- */
 function confirmarReprovar() {
   const just = document.getElementById('justificativa').value.trim();
-  if (!just) {
-    toast('Justificativa é obrigatória pra nocautear um lutador! 💥', 'erro');
-    return;
-  }
   const id = state.reprovarId;
   fecharModal();
-  aplicarPatch(id, { Status: STATUS_DESCARTADO, Notas: just }, '💥 Lutador nocauteado!');
+  aplicarVoto(id, 'nocaute', just); // just pode ser '' — motivo é opcional
 }
 function fecharModal() {
   document.getElementById('modal-reprovar').classList.add('oculto');
