@@ -14,6 +14,7 @@ import json
 import pathlib
 import re
 import sys
+import time
 import traceback
 import unicodedata
 import urllib.parse
@@ -52,45 +53,95 @@ def bairro_slug(nome):
 def urls_para_bairro(nome):
     slug = bairro_slug(nome)
     return {
-        "VivaReal": f"https://www.vivareal.com.br/aluguel/mg/belo-horizonte/bairros/{slug}/apartamento_padrao/",
-        "Zap": f"https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte/{slug}/",
+        "VivaReal": f"https://www.vivareal.com.br/aluguel/minas-gerais/belo-horizonte/bairros/{slug}/apartamento_residencial/",
+        "Zap": f"https://www.zapimoveis.com.br/aluguel/apartamentos/mg+belo-horizonte++{slug}/",
     }
 
 
 def extrair_listings(portal, url):
-    """Extrai (id, titulo, preco) dos anúncios via web_extract + regex tolerante."""
-    from hermes_tools import web_extract
-    res = web_extract([url])
-    content = res["results"][0].get("content", "") if res.get("results") else ""
-    if not content:
-        return []
+    """Fetch direto (urllib + UA de browser) + parse do JSON-LD embutido no HTML."""
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,*/*;q=0.8"})
+    with urllib.request.urlopen(req, timeout=40) as r:
+        html = r.read().decode("utf-8", errors="replace")
+    if "Attention Required" in html or "cf-error" in html.lower():
+        raise RuntimeError("bloqueio Cloudflare detectado")
     achados = {}
     if portal == "VivaReal":
-        for m in re.finditer(r"\[([^\]]{10,160})\]\((/aluguel/mg/belo-horizonte/bairros/[^)\s]*-?(\d{6,})-[^)\s]*)\)", content):
-            titulo, path, aid = m.group(1), m.group(2), m.group(3)
-            janela = content[max(0, m.end() - 60):m.end() + 400]
-            pm = re.search(r"R\$\s?([\d.]{4,12})", janela)
-            achados[aid] = {"titulo": titulo.strip(), "link": "https://www.vivareal.com.br" + path,
-                            "preco": float(pm.group(1).replace(".", "")) if pm else None}
-    else:  # Zap
-        for m in re.finditer(r"\[([^\]]{10,160})\]\((/aluguel/apartamentos/mg\+belo-horizonte/[^)\s]*-?(\d{6,})-[^)\s]*)\)", content):
-            titulo, path, aid = m.group(1), m.group(2), m.group(3)
-            janela = content[max(0, m.end() - 60):m.end() + 400]
-            pm = re.search(r"R\$\s?([\d.]{4,12})", janela)
-            achados[aid] = {"titulo": titulo.strip(), "link": "https://www.zapimoveis.com.br" + path,
-                            "preco": float(pm.group(1).replace(".", "")) if pm else None}
+        products = re.findall(r'\{"@type":"Product","@id":"(\d+)","name":"([^"]*)","url":"([^"]*)"', html)
+        for aid, name, link in products:
+            if aid in achados:
+                continue
+            j = html.find(f'"@id":"{aid}"')
+            janela = html[j:j + 6000]
+            pm = re.search(r'"price":([\d.]+)', janela)
+            cm = re.search(r'Condominium Fee","value":([\d.]+)', janela)
+            im = re.search(r'IPTU[^"]*","value":([\d.]+)', janela)
+            em = re.search(r'"streetAddress":"([^"]*)"', janela)
+            preco = float(pm.group(1)) if pm else None
+            cond = float(cm.group(1)) if cm else 0.0
+            iptu = float(im.group(1)) if im else 0.0
+            am = re.search(r'([\d.]+) m²', name)
+            qm = re.search(r'(\d+)\s*quartos?', name)
+            bm = re.search(r'(\d+)\s*banheiros?', name)
+            vm = re.search(r'(\d+)\s*vagas?', name)
+            achados[aid] = {
+                "titulo": name.strip(), "link": link,
+                "preco_aluguel": preco, "condominio": cond, "iptu": iptu,
+                "custo_total": (preco + cond + iptu) if preco else None,
+                "area": float(am.group(1)) if am else None,
+                "quartos": int(qm.group(1)) if qm else None,
+                "banheiros": int(bm.group(1)) if bm else None,
+                "vagas": int(vm.group(1)) if vm else None,
+                "endereco": em.group(1).strip() if em else "",
+            }
+    else:  # Zap — mesma técnica: JSON-LD/LD+JSON no HTML
+        for m in re.finditer(r'https://www\.zapimoveis\.com\.br/imovel/[^"\\\s\]]*?id-(\d+)', html):
+            aid = m.group(1)
+            if aid in achados:
+                continue
+            janela = html[max(0, m.start() - 1500):m.end() + 4500]
+            pm = re.search(r'"price":([\d.]+)', janela)
+            cm = re.search(r'Condominium Fee","value":([\d.]+)', janela)
+            nm = re.search(r'"name":"([^"]{15,180})"', janela)
+            am = re.search(r'([\d.]+) m²', nm.group(1) if nm else "")
+            qm = re.search(r'(\d+)\s*quartos?', nm.group(1) if nm else "")
+            bm = re.search(r'(\d+)\s*banheiros?', nm.group(1) if nm else "")
+            vm = re.search(r'(\d+)\s*vagas?', nm.group(1) if nm else "")
+            preco = float(pm.group(1)) if pm else None
+            cond = float(cm.group(1)) if cm else 0.0
+            achados[aid] = {
+                "titulo": (nm.group(1).strip() if nm else f"Zap id {aid}"),
+                "link": m.group(0),
+                "preco_aluguel": preco, "condominio": cond, "iptu": 0.0,
+                "custo_total": (preco + cond) if preco else None,
+                "area": float(am.group(1)) if am else None,
+                "quartos": int(qm.group(1)) if qm else None,
+                "banheiros": int(bm.group(1)) if bm else None,
+                "vagas": int(vm.group(1)) if vm else None,
+                "endereco": "",
+            }
     return list(achados.values())
 
 
 def passa_filtros(item, prefs):
     """Filtros aplicados ANTES de inserir. Retorna (ok, motivo)."""
-    preco = item.get("preco")
-    if preco and "Preço Máx Aluguel" in prefs and preco > float(prefs["Preço Máx Aluguel"]):
-        return False, f"preço {preco:.0f} > máx {prefs['Preço Máx Aluguel']}"
-    titulo = (item.get("titulo") or "").lower()
+    # custo total (aluguel+cond+iptu) ou preco puro como fallback
+    custo = item.get("custo_total") or item.get("preco_aluguel")
+    if custo and "Custo Total Máximo (aluguel+condomínio)" in prefs and custo > float(prefs["Custo Total Máximo (aluguel+condomínio)"]):
+        return False, f"custo {custo:.0f} > máx {prefs['Custo Total Máximo (aluguel+condomínio)']}"
+    q = item.get("quartos")
+    if q and "Quartos Mínimos" in prefs and q < int(prefs["Quartos Mínimos"]):
+        return False, f"{q} quartos < mín {prefs['Quartos Mínimos']}"
+    v = item.get("vagas")
+    if v is not None and "Vagas Mínimas" in prefs and v < int(prefs["Vagas Mínimas"]):
+        return False, f"{v} vagas < mín {prefs['Vagas Mínimas']}"
+    texto = " ".join([str(item.get("titulo") or ""), str(item.get("endereco") or "")]).lower()
     for kw in [k.strip().lower() for k in str(prefs.get("Excluir Palavras-chave", "")).split(";") if k.strip()]:
-        if kw in titulo:
-            return False, f"palavra-chave '{kw}' no título"
+        if kw in texto:
+            return False, f"palavra-chave '{kw}'"
     return True, ""
 
 
@@ -115,8 +166,8 @@ def main(dry_run=False):
         log(msg)
         sys.exit(1)
 
-    cont = {"VivaReal": {"novos": 0, "deduped": 0, "filtrados": 0, "extraidos": 0},
-            "Zap": {"novos": 0, "deduped": 0, "filtrados": 0, "extraidos": 0}}
+    cont = {"VivaReal": {"novos": 0, "deduped": 0, "filtrados": 0, "extraidos": 0, "erro": ""},
+            "Zap": {"novos": 0, "deduped": 0, "filtrados": 0, "extraidos": 0, "erro": ""}}
 
     if dry_run:
         print("DRY-RUN — URLs que SERIAM consultadas:")
@@ -133,7 +184,9 @@ def main(dry_run=False):
             try:
                 listings = extrair_listings(portal, u)
             except Exception as e:
+                cont[portal]["erro"] = str(e)[:120]
                 log(f"{portal}/{b}: erro na extração: {e}")
+                time.sleep(3)  # backoff — proteção anti rate-limit do portal
                 continue
             cont[portal]["extraidos"] += len(listings)
             for item in listings:
@@ -146,17 +199,28 @@ def main(dry_run=False):
                 try:
                     r = http_post_json(url + "?action=addListing", {
                         "action": "addListing", "link": item["link"],
-                        "titulo": item["titulo"], "bairro": b, "portal": portal,
-                        "preco_aluguel": item.get("preco") or ""})
+                        "titulo": item.get("titulo"), "bairro": b, "portal": portal,
+                        "endereco": item.get("endereco") or "",
+                        "preco_aluguel": item.get("preco_aluguel") or "",
+                        "condominio": item.get("condominio") if item.get("condominio") is not None else "",
+                        "iptu": item.get("iptu") if item.get("iptu") is not None else "",
+                        "custo_total": item.get("custo_total") if item.get("custo_total") is not None else "",
+                        "area": item.get("area") if item.get("area") is not None else "",
+                        "quartos": item.get("quartos") if item.get("quartos") is not None else "",
+                        "banheiros": item.get("banheiros") if item.get("banheiros") is not None else "",
+                        "vagas": item.get("vagas") if item.get("vagas") is not None else ""})
                     cont[portal]["deduped" if r.get("deduped") else "novos"] += 1
                 except Exception as e:
                     log(f"addListing falhou ({item['link']}): {e}")
 
-    # Parser tolerante: 0 listings em TODOS os bairros de um portal → suspeito
-    suspeito = [p for p in ("VivaReal", "Zap") if cont[p]["extraidos"] == 0]
+    # distinguir: parser quebrado (suspeito) vs portal bloqueado (403, normal, retry na próxima rodada)
+    suspeito = [p for p in ("VivaReal", "Zap") if cont[p]["extraidos"] == 0 and "403" not in cont[p]["erro"]]
+    bloqueados = [p for p in ("VivaReal", "Zap") if cont[p]["extraidos"] == 0 and "403" in cont[p]["erro"]]
     resumo = (f"🔎 Rinha cron {datetime.now().strftime('%d/%m %H:%M')} — "
               f"VivaReal: {cont['VivaReal']['novos']} novos/{cont['VivaReal']['deduped']} dup/{cont['VivaReal']['filtrados']} filt. "
               f"Zap: {cont['Zap']['novos']} novos/{cont['Zap']['deduped']} dup/{cont['Zap']['filtrados']} filt.")
+    if bloqueados:
+        resumo += f" 🛡️ {', '.join(bloqueados)} bloqueado(s) nesta rodada (retry na próxima)"
     if suspeito:
         resumo += f" ⚠️ PARSER_SUSPEITO: 0 listings em {', '.join(suspeito)}"
     print(resumo)
