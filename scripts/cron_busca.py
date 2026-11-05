@@ -58,16 +58,59 @@ def urls_para_bairro(nome):
     }
 
 
+def parse_zap_ldjson(ld_text):
+    """Parser do Zap: ItemList JSON-LD embutido. Retorna lista de listings."""
+    items = []
+    for block in re.findall(r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>',
+                            ld_text, re.S) or [ld_text]:
+        try:
+            d = json.loads(block.strip())
+        except json.JSONDecodeError:
+            continue
+        if not (isinstance(d, dict) and d.get("@type") == "ItemList"):
+            continue
+        for el in d.get("itemListElement", []):
+            it = el.get("item", {})
+            if it.get("@type") != "Product":
+                continue
+            off = it.get("offers", {}) or {}
+            price = off.get("price")
+            cond = 0.0
+            addp = off.get("additionalProperty")
+            if isinstance(addp, dict) and addp.get("name") == "Condominium Fee":
+                cond = float(addp.get("value") or 0)
+            pets = it.get("petsAllowed")
+            amenities = " ".join(a.get("value", "") for a in it.get("amenityFeature", []) if isinstance(a, dict))
+            items.append({
+                "titulo": (it.get("name") or "").strip() or f"Zap id {it.get('@id')}",
+                "link": it.get("url", ""),
+                "preco_aluguel": float(price) if price else None,
+                "condominio": cond, "iptu": 0.0,
+                "custo_total": (float(price) + cond) if price else None,
+                "area": float((it.get("floorSize") or {}).get("value") or 0) or None,
+                "quartos": it.get("numberOfBedrooms"),
+                "banheiros": it.get("numberOfBathroomsTotal"),
+                "vagas": 1 if "Garage" in amenities else 0,
+                "endereco": (it.get("address") or {}).get("streetAddress", ""),
+                "descricao": (it.get("description") or ""),
+                "nao_aceita_pet": pets is False,
+            })
+    return items
+
+
 def extrair_listings(portal, url):
     """Fetch direto (urllib + UA de browser) + parse do JSON-LD embutido no HTML."""
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
-        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-        "Accept": "text/html,application/xhtml+xml,*/*;q=0.8"})
-    with urllib.request.urlopen(req, timeout=40) as r:
-        html = r.read().decode("utf-8", errors="replace")
-    if "Attention Required" in html or "cf-error" in html.lower():
-        raise RuntimeError("bloqueio Cloudflare detectado")
+    if url.startswith("fixture://"):
+        html = pathlib.Path(url[len("fixture://"):]).read_text(encoding="utf-8")  # guarda de teste offline
+    else:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+            "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.8"})
+        with urllib.request.urlopen(req, timeout=40) as r:
+            html = r.read().decode("utf-8", errors="replace")
+        if "Attention Required" in html or "cf-error" in html.lower():
+            raise RuntimeError("bloqueio Cloudflare detectado")
     achados = {}
     if portal == "VivaReal":
         products = re.findall(r'\{"@type":"Product","@id":"(\d+)","name":"([^"]*)","url":"([^"]*)"', html)
@@ -97,51 +140,34 @@ def extrair_listings(portal, url):
                 "vagas": int(vm.group(1)) if vm else None,
                 "endereco": em.group(1).strip() if em else "",
             }
-    else:  # Zap — mesma técnica: JSON-LD/LD+JSON no HTML
-        for m in re.finditer(r'https://www\.zapimoveis\.com\.br/imovel/[^"\\\s\]]*?id-(\d+)', html):
-            aid = m.group(1)
-            if aid in achados:
-                continue
-            janela = html[max(0, m.start() - 1500):m.end() + 4500]
-            pm = re.search(r'"price":([\d.]+)', janela)
-            cm = re.search(r'Condominium Fee","value":([\d.]+)', janela)
-            nm = re.search(r'"name":"([^"]{15,180})"', janela)
-            am = re.search(r'([\d.]+) m²', nm.group(1) if nm else "")
-            qm = re.search(r'(\d+)\s*quartos?', nm.group(1) if nm else "")
-            bm = re.search(r'(\d+)\s*banheiros?', nm.group(1) if nm else "")
-            vm = re.search(r'(\d+)\s*vagas?', nm.group(1) if nm else "")
-            preco = float(pm.group(1)) if pm else None
-            cond = float(cm.group(1)) if cm else 0.0
-            achados[aid] = {
-                "titulo": (nm.group(1).strip() if nm else f"Zap id {aid}"),
-                "link": m.group(0),
-                "preco_aluguel": preco, "condominio": cond, "iptu": 0.0,
-                "custo_total": (preco + cond) if preco else None,
-                "area": float(am.group(1)) if am else None,
-                "quartos": int(qm.group(1)) if qm else None,
-                "banheiros": int(bm.group(1)) if bm else None,
-                "vagas": int(vm.group(1)) if vm else None,
-                "endereco": "",
-            }
+    else:  # Zap — JSON-LD ItemList estruturado (ver scripts/fixtures/)
+        return parse_zap_ldjson(html)
     return list(achados.values())
 
 
 def passa_filtros(item, prefs):
-    """Filtros aplicados ANTES de inserir. Retorna (ok, motivo)."""
-    # custo total (aluguel+cond+iptu) ou preco puro como fallback
+    """Filtros ANTES de inserir. Estritos: dado essencial faltando = reprova."""
     custo = item.get("custo_total") or item.get("preco_aluguel")
-    if custo and "Custo Total Máximo (aluguel+condomínio)" in prefs and custo > float(prefs["Custo Total Máximo (aluguel+condomínio)"]):
+    if not custo:
+        return False, "dados incompletos: sem preço"
+    if "Custo Total Máximo (aluguel+condomínio)" in prefs and custo > float(prefs["Custo Total Máximo (aluguel+condomínio)"]):
         return False, f"custo {custo:.0f} > máx {prefs['Custo Total Máximo (aluguel+condomínio)']}"
-    q = item.get("quartos")
-    if q and "Quartos Mínimos" in prefs and q < int(prefs["Quartos Mínimos"]):
-        return False, f"{q} quartos < mín {prefs['Quartos Mínimos']}"
-    v = item.get("vagas")
-    if v is not None and "Vagas Mínimas" in prefs and v < int(prefs["Vagas Mínimas"]):
-        return False, f"{v} vagas < mín {prefs['Vagas Mínimas']}"
-    texto = " ".join([str(item.get("titulo") or ""), str(item.get("endereco") or "")]).lower()
+    texto = " ".join([str(item.get("titulo") or ""), str(item.get("endereco") or ""),
+                      str(item.get("descricao") or "")]).lower()
     for kw in [k.strip().lower() for k in str(prefs.get("Excluir Palavras-chave", "")).split(";") if k.strip()]:
         if kw in texto:
             return False, f"palavra-chave '{kw}'"
+    q, v = item.get("quartos"), item.get("vagas")
+    if q is None:
+        return False, "dados incompletos: sem quartos"
+    if q < int(prefs.get("Quartos Mínimos", 1)):
+        return False, f"{q} quartos < mín {prefs.get('Quartos Mínimos')}"
+    if v is None:
+        return False, "dados incompletos: sem vagas"
+    if v < int(prefs.get("Vagas Mínimas", 0)):
+        return False, f"{v} vagas < mín {prefs.get('Vagas Mínimas')}"
+    if item.get("nao_aceita_pet"):
+        return False, "não aceita pet (petsAllowed=false)"
     return True, ""
 
 
