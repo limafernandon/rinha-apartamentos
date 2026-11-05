@@ -8,4 +8,4 @@
 // Apps Script apenas quando ela existir, ou use ?url=... na barra de endereço.
 const APPS_SCRIPT_URL = window.APPS_SCRIPT_URL_OVERRIDE ||
   (new URLSearchParams(window.location.search).get('url')) ||
-  ''; // TODO: colar URL do Apps Script quando disponível (ex.: 'https://script.google.com/macros/s/AKfy.../exec')
+  'https://script.google.com/macros/s/AKfycbx0H19iVvVGbNsQr34GzpcaEvbKP-7KnR0M_qY3vQNIHmTyKbgkJ6X35y_pGIg4mDYbvg/exec';
