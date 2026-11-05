@@ -1,0 +1,10 @@
+{
+  "apps_script_url": "",
+  "telegram_bot_token": "",
+  "telegram_chat_id": "",
+  "dados_fefo": {
+    "nome": "",
+    "telefone": "",
+    "email": ""
+  }
+}
