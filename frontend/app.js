@@ -467,6 +467,53 @@ function moverCard(cardEl, novoStatus) {
     });
 }
 
+/* ---------- Modal de detalhes do imóvel ---------- */
+function abrirDetalhe(id) {
+  const im = state.imoveis.find((i) => i.ID === id);
+  if (!im) return;
+  state.detalheId = id;
+  document.getElementById('detalhe-titulo').textContent = im['Título do Anúncio'] || im.Bairro || 'Imóvel';
+  document.getElementById('detalhe-meta').textContent =
+    `📍 ${im.Bairro || '—'} · ${brl(num(im['Custo Total']) || somaTotal(im))} · Status: ${im.Status || '—'}`;
+  const sel = document.getElementById('detalhe-status');
+  sel.innerHTML = VISITA_COLUNAS.concat(STATUS_ENCONTRADO, STATUS_DESCARTADO)
+    .map((s) => `<option value="${escapeHtml(s)}" ${s === im.Status ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+  const link = document.getElementById('detalhe-link');
+  if (im['Link Anúncio']) { link.href = im['Link Anúncio']; link.classList.remove('oculto'); }
+  else link.classList.add('oculto');
+  document.getElementById('detalhe-nota').value = im['Nota Visitada'] || '';
+  document.getElementById('modal-detalhe').classList.remove('oculto');
+}
+
+function fecharDetalhe() {
+  document.getElementById('modal-detalhe').classList.add('oculto');
+  state.detalheId = null;
+}
+
+async function salvarDetalhe() {
+  const id = state.detalheId;
+  if (!id) return;
+  const status = document.getElementById('detalhe-status').value;
+  const nota = document.getElementById('detalhe-nota').value.trim();
+  const im = state.imoveis.find((i) => i.ID === id);
+  const patch = { 'Nota Visitada': nota };
+  if (im && im.Status !== status) patch.Status = status;
+  const btn = document.getElementById('btn-salvar-detalhe');
+  btn.disabled = true;
+  try {
+    await apiPatch(id, patch);
+    if (im) { im['Nota Visitada'] = nota; if (patch.Status) im.Status = status; }
+    fecharDetalhe();
+    render();
+    toast('📝 Detalhes salvos!', 'ok');
+  } catch (e) {
+    toast('Falha ao salvar os detalhes. Tenta de novo!', 'erro');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 /* ---------- Helpers ---------- */
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -503,7 +550,12 @@ document.getElementById('btn-confirmar-reprovar').addEventListener('click', conf
 document.getElementById('modal-reprovar').addEventListener('click', (e) => {
   if (e.target.id === 'modal-reprovar') fecharModal();
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharModal(); });
+document.getElementById('btn-cancelar-detalhe').addEventListener('click', fecharDetalhe);
+document.getElementById('btn-salvar-detalhe').addEventListener('click', salvarDetalhe);
+document.getElementById('modal-detalhe').addEventListener('click', (e) => {
+  if (e.target.id === 'modal-detalhe') fecharDetalhe();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { fecharModal(); fecharDetalhe(); } });
 
 render();
 carregar();
