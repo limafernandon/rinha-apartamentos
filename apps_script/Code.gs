@@ -14,6 +14,12 @@
  *   GET  ?action=prefs                       → preferências ativas
  *   POST {action:'update', id, patch}        → atualiza campos de um imóvel
  *   POST {action:'addListing', ...campos}    → adiciona imóvel (dedupe por link)
+ *   POST {action:'vote', id, usuario, voto, motivo?}
+ *                                            → registra voto (gostei|nocaute) do juiz
+ *                                              (fefo|ray) nas colunas 'Voto Fefo'/'Voto Ray';
+ *                                              nocaute → Status=Descartado (motivo opcional em
+ *                                              'Notas/Observações'); 2 gostei → Status='Aprovado (seleção)'
+ *                                              com Contato vazio (decidido na shortlist).
  *   GET/POST ?action=ping                    → healthcheck
  */
 const SHEET_ID = '1hnlg419ue29oE-WwBVqJtCFIj84htdMU2efYZk3uzGc';
@@ -37,6 +43,7 @@ function handle_(params) {
     else if (action === 'update') out = update(params.id, params.patch || {});
     else if (action === 'addListing') out = addListing(params);
     else if (action === 'prefs') out = prefs();
+    else if (action === 'vote') out = vote(params);
     else out = { ok: false, error: 'ação desconhecida: ' + action };
     return json_(out);
   } catch (err) {
@@ -150,6 +157,51 @@ function addListing(p) {
   });
   r.sh.appendRow(linha);
   return { ok: true, deduped: false, id: id };
+}
+
+/** Ação 'vote': registra voto de 1 usuário direto nas colunas da aba Imóveis.
+ *  Colunas: 'Voto Fefo' e 'Voto Ray' → 'gostei' | 'nocaute' | ''.
+ *  Regras:
+ *   - nocaute de QUALQUER um  → Status = Descartado (Notas/Observações = motivo, se vier)
+ *   - 2 gostei (os dois juízes) → Status = 'Aprovado (seleção)' (Contato fica vazio → decidido na shortlist)
+ */
+function vote(p) {
+  var usuario = String(p.usuario || '').toLowerCase(); // 'fefo' | 'ray'
+  var voto = String(p.voto || '');
+  if ((usuario !== 'fefo' && usuario !== 'ray') || (voto !== 'gostei' && voto !== 'nocaute'))
+    return { ok: false, error: 'parametros obrigatorios: usuario(fefo|ray), voto(gostei|nocaute)' };
+  if (!p.id) return { ok: false, error: 'id obrigatório' };
+
+  var colVoto = usuario === 'fefo' ? 'Voto Fefo' : 'Voto Ray';
+  var patch = {};
+  patch[colVoto] = voto;
+
+  if (voto === 'nocaute') {
+    patch.Status = 'Descartado';
+    if (p.motivo) patch['Notas/Observações'] = p.motivo;
+    var respNoc = update(p.id, patch);
+    return { ok: respNoc.ok !== false, id: p.id, resultado: 'nocauteado' };
+  }
+
+  // gostei: precisa dos DOIS. Ler o voto do outro juiz antes de gravar o meu.
+  var r = readImoveis_();
+  var idxId = r.header.indexOf('ID');
+  var linhaObj = null;
+  for (var i = 0; i < r.rows.length; i++) {
+    if (String(r.rows[i][idxId]) === String(p.id)) { linhaObj = r.rows[i]; break; }
+  }
+  if (!linhaObj) return { ok: false, error: 'ID nao encontrado: ' + p.id };
+
+  var colOutro = usuario === 'fefo' ? 'Voto Ray' : 'Voto Fefo';
+  var votoOutro = String(linhaObj[r.header.indexOf(colOutro)] || '').toLowerCase();
+  var resp = update(p.id, patch);
+  if (resp.ok === false) return resp;
+
+  if (votoOutro === 'gostei') {
+    update(p.id, { Status: 'Aprovado (seleção)' });
+    return { ok: true, id: p.id, resultado: 'shortlist' };
+  }
+  return { ok: true, id: p.id, resultado: 'aguardando-outro-juiz' };
 }
 
 /** Ação 'prefs': {Filtro: Valor} só onde Ativo=true. */
