@@ -223,13 +223,8 @@ def main(dry_run=False):
         resumo += f" 🛡️ {', '.join(bloqueados)} bloqueado(s) nesta rodada (retry na próxima)"
     if suspeito:
         resumo += f" ⚠️ PARSER_SUSPEITO: 0 listings em {', '.join(suspeito)}"
-    print(resumo)
+    print(resumo)  # stdout é entregue pelo deliver do cronjob (no_agent)
     log(resumo)
-    if cfg.get("telegram_bot_token") and cfg.get("telegram_chat_id"):
-        import os
-        os.environ.setdefault("TELEGRAM_BOT_TOKEN", cfg["telegram_bot_token"])
-        os.environ.setdefault("RINHA_TELEGRAM_CHAT_ID", cfg["telegram_chat_id"])
-        send(resumo)
 
 
 if __name__ == "__main__":
