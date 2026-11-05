@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🥊 Rinha de Apartamentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topo">
+  <h1 class="titulo-ringe">🥊 RINHA DE APARTAMENTOS</h1>
+  <nav class="abas">
+    <button class="aba ativa" data-aba="selecao">SELEÇÃO</button>
+    <button class="aba" data-aba="visita">VISITA</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Aba SELEÇÃO: pilha de cards tinder -->
+  <section id="aba-selecao" class="painel ativa">
+    <div id="pilha-container">
+      <div class="loading" id="loading-selecao">
+        <div class="sino"></div>
+        <p>Preparando o ringue...</p>
+      </div>
+      <div id="card-area"></div>
+    </div>
+  </section>
+
+  <!-- Aba VISITA: lista de imóveis aprovados/visitados -->
+  <section id="aba-visita" class="painel">
+    <div class="loading" id="loading-visita">
+      <div class="sino"></div>
+      <p>Chamando os lutadores classificados...</p>
+    </div>
+    <div id="visita-container"></div>
+  </section>
+</main>
+
+<!-- Modal de justificativa (reprovação) -->
+<div id="modal-reprovar" class="modal oculto">
+  <div class="modal-caixa">
+    <h2 class="modal-titulo">💥 NOCAUTEADO!</h2>
+    <p class="modal-sub">Por que esse lutador sai do ringue? (obrigatório)</p>
+    <textarea id="justificativa" rows="4" placeholder="Ex.: caro demais pro bairro, área apertada, vaga nenhuma..."></textarea>
+    <div class="modal-acoes">
+      <button id="btn-cancelar-reprovar" class="btn btn-sec">Cancelar</button>
+      <button id="btn-confirmar-reprovar" class="btn btn-perigo">Descartar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
