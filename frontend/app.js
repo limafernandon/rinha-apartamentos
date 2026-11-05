@@ -384,7 +384,7 @@ function pileVisita() {
 
 function kanbanCardHtml(im) {
   return `
-    <div class="kanban-card" draggable="true" data-id="${escapeHtml(im.ID || '')}">
+    <div class="kanban-card${im.Status === STATUS_DESCARTADO ? ' kc-descartado' : ''}" draggable="true" data-id="${escapeHtml(im.ID || '')}">
       <div class="kc-topo">
         <span class="badge badge-ouro">${brl(num(im['Custo Total']) || somaTotal(im))}</span>
       </div>
@@ -398,17 +398,21 @@ function kanbanCardHtml(im) {
 function renderVisita() {
   const cont = document.getElementById('visita-container');
   const pilha = pileVisita();
-  if (!pilha.length) {
+  const temDescartados = state.imoveis.some((i) => (i.Status || '') === STATUS_DESCARTADO);
+  if (!pilha.length && !temDescartados) {
     cont.innerHTML = '<p class="vazio">Nenhum lutador classificado ainda. Volte pra aba SELEÇÃO! 🥊</p>';
     return;
   }
-  const colunas = VISITA_COLUNAS.map((status) => {
-    const cards = pilha
-      .filter((i) => (i.Status || '') === status)
-      .map(kanbanCardHtml).join('');
+  // Última coluna = Descartado (fora do fluxo) — puxa dos descartados, que pileVisita não inclui.
+  const colunas = VISITA_COLUNAS.concat(STATUS_DESCARTADO).map((status) => {
+    const base = status === STATUS_DESCARTADO
+      ? state.imoveis.filter((i) => (i.Status || '') === STATUS_DESCARTADO)
+      : pilha;
+    const daColuna = base.filter((i) => (i.Status || '') === status);
+    const cards = daColuna.map(kanbanCardHtml).join('');
     return `
-      <div class="kanban-coluna" data-status="${escapeHtml(status)}">
-        <div class="kc-cabeca">${escapeHtml(status)} <span class="kc-contagem">${pilha.filter((i) => (i.Status || '') === status).length}</span></div>
+      <div class="kanban-coluna${status === STATUS_DESCARTADO ? ' kc-col-descartado' : ''}" data-status="${escapeHtml(status)}">
+        <div class="kc-cabeca">${escapeHtml(status)} <span class="kc-contagem">${daColuna.length}</span></div>
         <div class="kc-corpo" data-status="${escapeHtml(status)}">${cards}</div>
       </div>`;
   }).join('');

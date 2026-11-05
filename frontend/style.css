@@ -316,6 +316,17 @@ main { padding: 24px 16px 60px; max-width: 960px; margin: 0 auto; }
 }
 .kanban-card:active { cursor: grabbing; }
 .kanban-card.kc-arrastando { opacity: .45; }
+
+/* Coluna Descartado: fora do fluxo, visual apagado p/ dar impressão de disabled */
+.kc-col-descartado { border-style: dashed; }
+.kc-col-descartado .kc-cabeca { color: var(--texto-fraco); border-bottom-style: dashed; }
+.kc-descartado {
+  opacity: .45;
+  filter: grayscale(.85);
+  border-style: dashed;
+}
+.kc-descartado .kc-titulo { text-decoration: line-through; }
+.kc-descartado:hover { opacity: .7; }
 .kc-topo { display: flex; justify-content: flex-end; margin-bottom: 4px; }
 .kc-titulo { font-weight: 700; font-size: .95rem; line-height: 1.25; }
 .kc-meta { margin: 4px 0 0; font-size: .8rem; color: var(--texto-fraco); }
