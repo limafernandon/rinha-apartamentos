@@ -375,46 +375,96 @@ function renderShortlist() {
     }));
 }
 
-/* ---------- VISITA (tabela) ---------- */
+/* ---------- VISITA (kanban com drag-and-drop) ---------- */
+function pileVisita() {
+  // Mesma regra da lista antiga: tudo que passou da seleção e não foi descartado.
+  return state.imoveis.filter(
+    (i) => i.Status !== STATUS_ENCONTRADO && i.Status !== STATUS_DESCARTADO);
+}
+
+function kanbanCardHtml(im) {
+  return `
+    <div class="kanban-card" draggable="true" data-id="${escapeHtml(im.ID || '')}">
+      <div class="kc-topo">
+        <span class="badge badge-ouro">${brl(num(im['Custo Total']) || somaTotal(im))}</span>
+      </div>
+      <div class="kc-titulo">${escapeHtml(im['Título do Anúncio'] || im.Bairro || '—')}</div>
+      <p class="kc-meta">📍 ${escapeHtml(im.Bairro || '—')}${num(im['Quartos']) ? ` · 🛏️ ${num(im['Quartos'])}` : ''}${num(im['Vagas Garagem'] ?? im['Vagas']) ? ` · 🚗 ${num(im['Vagas Garagem'] ?? im['Vagas'])}` : ''}</p>
+      ${im['Nota Visitada'] ? `<p class="kc-nota">📝 ${escapeHtml(String(im['Nota Visitada']).slice(0, 60))}</p>` : ''}
+    </div>`;
+}
+
 function renderVisita() {
   const cont = document.getElementById('visita-container');
-  const lista = state.imoveis.filter(
-    (i) => i.Status !== STATUS_ENCONTRADO && i.Status !== STATUS_DESCARTADO);
-  if (!lista.length) {
+  const pilha = pileVisita();
+  if (!pilha.length) {
     cont.innerHTML = '<p class="vazio">Nenhum lutador classificado ainda. Volte pra aba SELEÇÃO! 🥊</p>';
     return;
   }
-  const linhas = lista.map((im) => `
-    <div class="linha-visita" data-id="${escapeHtml(im.ID || '')}">
-      <div class="lv-main">
-        <div class="lv-topo">
-          <span class="badge badge-${slug(im.Status || '—')}">${escapeHtml(im.Status || '—')}</span>
-          <span class="badge badge-ouro">${brl(num(im['Custo Total']) || somaTotal(im))}</span>
-        </div>
-        ${linhaVisitaHtml(im)}
-      </div>
-      <div class="lv-nota">
-        <label>Nota da visita:</label>
-        <textarea rows="2" placeholder="Anote aqui o que achou da visita...">${escapeHtml(im['Nota Visitada'] || '')}</textarea>
-        <button class="btn btn-sec btn-salvar-nota">Salvar nota</button>
-      </div>
-    </div>`).join('');
-  cont.innerHTML = `<div class="visita-lista">${linhas}</div>`;
-  cont.querySelectorAll('.linha-visita').forEach((row) => {
-    row.querySelector('.btn-salvar-nota').addEventListener('click', async () => {
-      const nota = row.querySelector('textarea').value.trim();
-      const id = row.dataset.id;
-      try {
-        await apiPatch(id, { 'Nota Visitada': nota });
-        const im = state.imoveis.find((i) => i.ID === id);
-        if (im) im['Nota Visitada'] = nota;
-        toast('📝 Nota salva!', 'ok');
-      } catch (e) {
-        toast('Falha ao salvar a nota. Tenta de novo!', 'erro');
-        console.error(e);
-      }
+  const colunas = VISITA_COLUNAS.map((status) => {
+    const cards = pilha
+      .filter((i) => (i.Status || '') === status)
+      .map(kanbanCardHtml).join('');
+    return `
+      <div class="kanban-coluna" data-status="${escapeHtml(status)}">
+        <div class="kc-cabeca">${escapeHtml(status)} <span class="kc-contagem">${pilha.filter((i) => (i.Status || '') === status).length}</span></div>
+        <div class="kc-corpo" data-status="${escapeHtml(status)}">${cards}</div>
+      </div>`;
+  }).join('');
+  cont.innerHTML = `<div class="kanban">${colunas}</div>`;
+  bindKanban(cont);
+}
+
+/* Drag & drop: arrastar card entre colunas muda o Status (patch na planilha). */
+function bindKanban(cont) {
+  let arrastado = null;
+  cont.querySelectorAll('.kanban-card').forEach((card) => {
+    card.addEventListener('dragstart', (e) => {
+      arrastado = card;
+      card.classList.add('kc-arrastando');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.id); // necessário p/ Firefox
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('kc-arrastando');
+      cont.querySelectorAll('.kc-corpo.kc-sobre').forEach((c) => c.classList.remove('kc-sobre'));
+      arrastado = null;
+    });
+    card.addEventListener('click', () => abrirDetalhe(card.dataset.id));
+  });
+  cont.querySelectorAll('.kc-corpo').forEach((corpo) => {
+    corpo.addEventListener('dragover', (e) => {
+      e.preventDefault(); // obrigatório p/ permitir drop
+      e.dataTransfer.dropEffect = 'move';
+      corpo.classList.add('kc-sobre');
+    });
+    corpo.addEventListener('dragleave', () => corpo.classList.remove('kc-sobre'));
+    corpo.addEventListener('drop', (e) => {
+      e.preventDefault();
+      corpo.classList.remove('kc-sobre');
+      if (!arrastado) return;
+      const novoStatus = corpo.dataset.status;
+      moverCard(arrastado, novoStatus);
     });
   });
+}
+
+function moverCard(cardEl, novoStatus) {
+  const id = cardEl.dataset.id;
+  const im = state.imoveis.find((i) => i.ID === id);
+  if (!im || im.Status === novoStatus) return;
+  const statusAntigo = im.Status;
+  im.Status = novoStatus;                       // otimista
+  render();
+  apiPatch(id, { Status: novoStatus })
+    .then(() => toast(`📋 Status → ${novoStatus}`, 'ok'))
+    .catch(() => {
+      toast('Falha ao salvar o status. Recarregando...', 'erro');
+      const im2 = state.imoveis.find((i) => i.ID === id);
+      if (im2) im2.Status = statusAntigo;
+      render();
+      carregar(true);
+    });
 }
 
 /* ---------- Helpers ---------- */
